@@ -17,6 +17,7 @@ from voice_recognizer.utils.logging_utils import (
     print_progress,
     print_keyword_detected
 )
+from voice_recognizer.services.gemini_service import GeminiService
 
 class RecognitionService:
     """
@@ -33,6 +34,7 @@ class RecognitionService:
         self.worker_thread = None
         self.keyword_active = False
         self.keyword_timer = None
+        self.gemini_service = GeminiService()
         self._configure_recognizer()
         
     def _configure_recognizer(self):
@@ -142,8 +144,11 @@ class RecognitionService:
                 
                 # Check if the text contains the wake word or if the system is already active
                 if self._check_for_keyword(text):
-                    # Print the recognized text if the wake word is present or the system is active
+                    # Stampa il testo riconosciuto per il debug
                     print_recognized_text(text)
+                    
+                    # Invia il testo all'API Gemini invece di stamparlo
+                    self.gemini_service.send_text(text)
                 
             except sr.UnknownValueError:
                 pass  # Ignore unrecognized audio

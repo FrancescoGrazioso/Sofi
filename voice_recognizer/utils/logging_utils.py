@@ -48,6 +48,16 @@ def print_error(message):
     """
     print(f"\nError: {message}", file=sys.stderr)
 
+def print_api_response(text):
+    """
+    Print the response received from the API.
+    
+    Args:
+        text (str): The response text from the API.
+    """
+    if text:
+        print(f"\nRisposta API: {text}")
+
 def print_welcome():
     """
     Print the welcome message at application startup.

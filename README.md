@@ -1,107 +1,120 @@
 # Sofi - Real-time Voice Recognition Assistant
 
-Sofi is a real-time voice recognition system that continuously listens for a wake word and transcribes speech to text once activated.
+Sofi è un sistema di riconoscimento vocale in tempo reale che ascolta continuamente una parola di attivazione e trascrive il discorso in testo una volta attivato, inviandolo all'API Gemini per generare risposte.
 
-## Features
+## Funzionalità
 
-- Continuous real-time voice recognition
-- Wake word activation ("Sofi")
-- Automatic microphone detection
-- Cross-platform support (Windows, macOS, Linux)
-- Customizable configuration
-- Automatic ambient noise calibration
+- Riconoscimento vocale continuo in tempo reale
+- Attivazione tramite parola chiave ("Sofi")
+- Rilevamento automatico del microfono
+- Supporto multipiattaforma (Windows, macOS, Linux)
+- Configurazione personalizzabile
+- Calibrazione automatica del rumore ambientale
+- Integrazione con l'API Gemini per la generazione di risposte AI
 
-## Project Structure
+## Struttura del Progetto
 
 ```
 .
-├── voice_recognizer/           # Main package
-│   ├── __init__.py             # Package initialization
-│   ├── __main__.py             # Entry point for direct execution
-│   ├── main.py                 # Main application file
-│   ├── config/                 # Configurations
-│   │   └── settings.py         # Application settings
-│   ├── services/               # Services
+├── voice_recognizer/           # Package principale
+│   ├── __init__.py             # Inizializzazione del package
+│   ├── __main__.py             # Punto di ingresso per l'esecuzione diretta
+│   ├── main.py                 # File principale dell'applicazione
+│   ├── config/                 # Configurazioni
+│   │   ├── settings.py         # Impostazioni dell'applicazione
+│   │   └── api_settings.py     # Impostazioni API
+│   ├── services/               # Servizi
 │   │   ├── __init__.py
-│   │   ├── microphone_service.py  # Microphone management
-│   │   └── recognition_service.py # Voice recognition management
-│   └── utils/                  # Utilities
+│   │   ├── microphone_service.py  # Gestione del microfono
+│   │   ├── recognition_service.py # Gestione del riconoscimento vocale
+│   │   └── gemini_service.py      # Servizio per l'API Gemini
+│   └── utils/                  # Utilità
 │       ├── __init__.py
-│       ├── logging_utils.py    # Message handling utilities
-│       └── exception_utils.py  # Error handling utilities
-├── run.py                      # Launch script
-├── requirements.txt            # Dependencies
-└── README.md                   # Documentation
+│       ├── logging_utils.py    # Utilità per la gestione dei messaggi
+│       └── exception_utils.py  # Utilità per la gestione degli errori
+├── run.py                      # Script di avvio
+├── requirements.txt            # Dipendenze
+├── .env.example                # Esempio di file di ambiente
+└── README.md                   # Documentazione
 ```
 
-## Requirements
+## Requisiti
 
 - Python 3.7+
-- Required libraries (installable via requirements.txt):
+- Librerie richieste (installabili tramite requirements.txt):
   - SpeechRecognition
   - PyAudio
   - pydub
+  - requests
+  - python-dotenv
 
-## Installation
+## Installazione
 
-1. Clone the repository:
+1. Clona il repository:
    ```bash
-   git clone https://github.com/your-username/Sofi.git
+   git clone https://github.com/tuo-username/Sofi.git
    cd Sofi
    ```
 
-2. Create a virtual environment (optional but recommended):
+2. Crea un ambiente virtuale (opzionale ma consigliato):
    ```bash
    python -m venv venv
    source venv/bin/activate  # Linux/macOS
-   # or
+   # o
    venv\Scripts\activate     # Windows
    ```
 
-3. Install dependencies:
+3. Installa le dipendenze:
    ```bash
    pip install -r requirements.txt
    ```
 
-## Usage
+4. Configura le variabili d'ambiente:
+   - Copia il file `.env.example` in `.env`
+   - Modifica il file `.env` aggiungendo la tua chiave API Gemini
 
-### Quick Start
+## Utilizzo
 
-Run the main script:
+### Avvio Rapido
+
+Esegui lo script principale:
 
 ```bash
 python run.py
 ```
 
-Or run the module directly:
+Oppure esegui il modulo direttamente:
 
 ```bash
 python -m voice_recognizer
 ```
 
-The program will listen through your default microphone and wait for the wake word "Sofi". Once activated, it will transcribe your speech to text and display it in the console for 10 seconds after the last detected speech.
+Il programma ascolterà attraverso il microfono predefinito e attenderà la parola di attivazione "Sofi". Una volta attivato, trascriverà il tuo discorso in testo, lo invierà all'API Gemini e visualizzerà la risposta dell'API nella console.
 
-### How It Works
+### Come Funziona
 
-1. The system continuously listens for the wake word "Sofi"
-2. When "Sofi" is detected, the assistant is activated for 10 seconds
-3. During this active period, all recognized speech is transcribed and displayed
-4. Each new recognized phrase extends the active period
-5. After 10 seconds of silence, the system returns to wake word detection mode
+1. Il sistema ascolta continuamente la parola di attivazione "Sofi"
+2. Quando "Sofi" viene rilevato, l'assistente si attiva per 10 secondi
+3. Durante questo periodo attivo, tutto il parlato riconosciuto viene trascritto e inviato all'API Gemini
+4. La risposta dell'API viene visualizzata nella console
+5. Ogni nuova frase riconosciuta estende il periodo attivo
+6. Dopo 10 secondi di silenzio, il sistema torna alla modalità di rilevamento della parola di attivazione
 
-## Customization
+## Personalizzazione
 
-The voice recognition settings can be modified in the `voice_recognizer/config/settings.py` file:
+Le impostazioni di riconoscimento vocale possono essere modificate nel file `voice_recognizer/config/settings.py`:
 
-- Change the wake word
-- Adjust the active listening timeout
-- Modify sensitivity settings
-- Change the language for recognition
+- Cambiare la parola di attivazione
+- Regolare il timeout di ascolto attivo
+- Modificare le impostazioni di sensibilità
+- Cambiare la lingua per il riconoscimento
 
-## License
+Le impostazioni dell'API Gemini possono essere modificate nel file `voice_recognizer/config/api_settings.py`.
+
+## Licenza
 
 MIT
 
-## Acknowledgments
+## Ringraziamenti
 
-This project uses Google's Speech Recognition API for speech-to-text conversion. 
+Questo progetto utilizza l'API di riconoscimento vocale di Google per la conversione da parlato a testo e l'API Gemini per la generazione delle risposte AI. 
