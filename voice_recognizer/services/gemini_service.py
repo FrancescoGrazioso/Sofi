@@ -9,6 +9,7 @@ import json
 import requests
 from voice_recognizer.config.api_settings import GEMINI_API_SETTINGS
 from voice_recognizer.utils.logging_utils import print_error, print_api_response
+from voice_recognizer.services.tts_service import TTSService
 
 class GeminiService:
     """
@@ -24,6 +25,9 @@ class GeminiService:
         self.api_url = GEMINI_API_SETTINGS["api_url"]
         self.timeout = GEMINI_API_SETTINGS["timeout"]
         self.enabled = GEMINI_API_SETTINGS["enabled"]
+        
+        # Inizializza il servizio TTS
+        self.tts_service = TTSService(language="it")
         
     def is_configured(self):
         """
@@ -77,8 +81,14 @@ class GeminiService:
                     if "content" in response_data["candidates"][0]:
                         content = response_data["candidates"][0]["content"]
                         if "parts" in content and len(content["parts"]) > 0:
-                            text = content["parts"][0].get("text", "")
-                            print_api_response(text)
+                            response_text = content["parts"][0].get("text", "")
+                            
+                            # Mostra la risposta testuale
+                            print_api_response(response_text)
+                            
+                            # Riproduci la risposta come voce
+                            self.tts_service.speak(response_text)
+                            
                             return response_data
                 
                 print_error("Struttura di risposta non valida dall'API Gemini.")
