@@ -24,6 +24,25 @@ def print_recognized_text(text):
     if text:
         print(f"{DISPLAY_SETTINGS['text_prefix']}{text}")
 
+def print_buffering_text(text):
+    """
+    Print the text being buffered with formatting to indicate it's waiting.
+    
+    Args:
+        text (str): The text being buffered.
+    """
+    if text:
+        print(f"{DISPLAY_SETTINGS['buffer_prefix']}{text} [...]", end="", flush=True)
+
+def print_countdown(seconds):
+    """
+    Print a countdown before sending the text to the API.
+    
+    Args:
+        seconds (int): Remaining seconds before sending.
+    """
+    print(DISPLAY_SETTINGS["buffer_countdown"] % seconds, end="", flush=True)
+
 def print_keyword_detected():
     """
     Print a message indicating that the wake word has been detected.

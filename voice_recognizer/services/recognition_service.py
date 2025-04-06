@@ -10,12 +10,14 @@ import threading
 import time
 import speech_recognition as sr
 
-from voice_recognizer.config.settings import RECOGNITION_SETTINGS, KEYWORD_SETTINGS
+from voice_recognizer.config.settings import RECOGNITION_SETTINGS, KEYWORD_SETTINGS, DISPLAY_SETTINGS
 from voice_recognizer.utils.logging_utils import (
     print_recognized_text, 
     print_error, 
     print_progress,
-    print_keyword_detected
+    print_keyword_detected,
+    print_buffering_text,
+    print_countdown
 )
 from voice_recognizer.services.gemini_service import GeminiService
 
@@ -35,6 +37,25 @@ class RecognitionService:
         self.keyword_active = False
         self.keyword_timer = None
         self.gemini_service = GeminiService()
+        
+        # Buffer per accumulare il testo prima di inviarlo
+        self.text_buffer = ""
+        self.buffer_timer = None
+        self.buffer_lock = threading.Lock()
+        self.countdown_timer = None
+        self.forced_send_timer = None
+        
+        # Timestamp dell'ultimo testo aggiunto al buffer
+        self.last_text_time = 0
+        
+        # Flag che indica se il countdown è visibile
+        self.countdown_active = False
+        
+        # Configurazione del buffer
+        self.buffer_delay = RECOGNITION_SETTINGS["buffer_delay"]
+        self.buffer_extension = RECOGNITION_SETTINGS["buffer_extension_time"]
+        self.max_buffer_hold_time = RECOGNITION_SETTINGS["max_buffer_hold_time"]
+        
         self._configure_recognizer()
         
     def _configure_recognizer(self):
@@ -98,6 +119,7 @@ class RecognitionService:
         Deactivate the wake word mode.
         """
         self.keyword_active = False
+        self._force_send_buffer()  # Invia il buffer rimanente quando si disattiva la keyword
         
     def _check_for_keyword(self, text):
         """
@@ -123,6 +145,151 @@ class RecognitionService:
             return True
             
         return False
+    
+    def _force_send_buffer(self):
+        """
+        Forza l'invio del buffer corrente all'API, annullando qualsiasi timer attivo.
+        """
+        # Annulla tutti i timer attivi
+        self._cancel_timers()
+        
+        # Invia il buffer all'API
+        self._send_buffer_to_api()
+    
+    def _cancel_timers(self):
+        """
+        Annulla tutti i timer attivi relativi al buffer.
+        """
+        # Annulla il timer del buffer principale
+        if self.buffer_timer is not None:
+            self.buffer_timer.cancel()
+            self.buffer_timer = None
+        
+        # Annulla il timer del countdown
+        if self.countdown_timer is not None:
+            self.countdown_timer.cancel()
+            self.countdown_timer = None
+            
+        # Annulla il timer di invio forzato
+        if self.forced_send_timer is not None:
+            self.forced_send_timer.cancel()
+            self.forced_send_timer = None
+            
+        # Resetta il flag del countdown
+        self.countdown_active = False
+    
+    def _send_buffer_to_api(self):
+        """
+        Invia il buffer di testo corrente all'API Gemini e pulisce il buffer.
+        """
+        with self.buffer_lock:
+            if self.text_buffer:
+                # Stampa un messaggio che indica l'invio del testo buffered
+                print_recognized_text(self.text_buffer + " (invio)")
+                
+                # Invia il testo all'API Gemini
+                self.gemini_service.send_text(self.text_buffer)
+                
+                # Pulisce il buffer
+                self.text_buffer = ""
+                
+                # Resetta il timestamp dell'ultimo testo
+                self.last_text_time = 0
+    
+    def _start_countdown(self, seconds):
+        """
+        Avvia un countdown visibile per l'utente prima dell'invio del testo.
+        
+        Args:
+            seconds (int): Secondi iniziali del countdown.
+        """
+        # Imposta il flag del countdown
+        self.countdown_active = True
+        
+        def _countdown_step(remaining):
+            """Step del countdown."""
+            if remaining <= 0:
+                # Se il countdown è terminato, invia il buffer
+                self._send_buffer_to_api()
+                self.countdown_active = False
+                return
+                
+            # Stampa il countdown
+            print_countdown(remaining)
+                
+            # Programma il prossimo step del countdown
+            self.countdown_timer = threading.Timer(1.0, _countdown_step, [remaining - 1])
+            self.countdown_timer.daemon = True
+            self.countdown_timer.start()
+        
+        # Avvia il countdown
+        _countdown_step(int(seconds))
+    
+    def _schedule_buffer_send(self):
+        """
+        Pianifica l'invio del buffer all'API dopo un ritardo.
+        """
+        # Annulla i timer precedenti
+        self._cancel_timers()
+        
+        # Calcola il tempo passato dall'ultima aggiunta di testo
+        time_since_last_text = time.time() - self.last_text_time
+        
+        # Se è passato troppo tempo, invia subito
+        if time_since_last_text > self.buffer_delay and self.last_text_time > 0:
+            self._send_buffer_to_api()
+            return
+            
+        # Imposta il timer per l'avvio del countdown
+        self.buffer_timer = threading.Timer(
+            self.buffer_delay - 3.0 if self.buffer_delay > 3.0 else 0.1,  # Lascia almeno 3 secondi per il countdown o 0.1 se il buffer_delay è troppo piccolo
+            self._start_countdown,
+            [3]  # Countdown di 3 secondi
+        )
+        self.buffer_timer.daemon = True
+        self.buffer_timer.start()
+        
+        # Imposta un timer di sicurezza per l'invio forzato dopo il tempo massimo
+        if self.max_buffer_hold_time > 0:
+            self.forced_send_timer = threading.Timer(
+                self.max_buffer_hold_time,
+                self._force_send_buffer
+            )
+            self.forced_send_timer.daemon = True
+            self.forced_send_timer.start()
+            
+        # Mostra il testo buffered con indicazione visiva
+        with self.buffer_lock:
+            if self.text_buffer:
+                print_buffering_text(self.text_buffer)
+    
+    def _add_to_buffer(self, text):
+        """
+        Aggiunge testo al buffer e pianifica l'invio.
+        
+        Args:
+            text (str): Testo da aggiungere al buffer.
+        """
+        with self.buffer_lock:
+            if self.text_buffer:
+                # Se c'è già del testo nel buffer, aggiungi uno spazio prima del nuovo testo
+                self.text_buffer += " " + text
+            else:
+                # Altrimenti, imposta il buffer al nuovo testo
+                self.text_buffer = text
+                
+            # Aggiorna il timestamp dell'ultimo testo aggiunto
+            self.last_text_time = time.time()
+            
+            # Mostra il testo buffered con indicazione visiva
+            print_buffering_text(self.text_buffer)
+            
+        # Se il countdown è attivo, annulla tutto e riprogramma
+        if self.countdown_active:
+            self._cancel_timers()
+            
+        # Pianifica l'invio del buffer
+        self._schedule_buffer_send()
         
     def _recognition_worker(self):
         """
@@ -133,6 +300,8 @@ class RecognitionService:
             
             # Exit signal
             if audio is None:
+                # Invia il buffer rimanente prima di uscire
+                self._force_send_buffer()
                 break
                 
             try:
@@ -144,11 +313,19 @@ class RecognitionService:
                 
                 # Check if the text contains the wake word or if the system is already active
                 if self._check_for_keyword(text):
-                    # Stampa il testo riconosciuto per il debug
-                    print_recognized_text(text)
+                    # Se contiene la parola chiave, rimuovila dal testo prima di bufferizzarlo
+                    if KEYWORD_SETTINGS["keyword"].lower() in text.lower():
+                        # Rimuovi solo la prima occorrenza della parola chiave (case insensitive)
+                        keyword = KEYWORD_SETTINGS["keyword"].lower()
+                        text_lower = text.lower()
+                        start_index = text_lower.find(keyword)
+                        if start_index != -1:
+                            text = text[:start_index] + text[start_index + len(keyword):]
+                            text = text.strip()
                     
-                    # Invia il testo all'API Gemini invece di stamparlo
-                    self.gemini_service.send_text(text)
+                    # Aggiungi il testo al buffer solo se non è vuoto dopo la rimozione della keyword
+                    if text:
+                        self._add_to_buffer(text)
                 
             except sr.UnknownValueError:
                 pass  # Ignore unrecognized audio
@@ -194,6 +371,9 @@ class RecognitionService:
         # Cancel the wake word timer if active
         if self.keyword_timer:
             self.keyword_timer.cancel()
+            
+        # Cancel all buffer timers if active
+        self._cancel_timers()
             
         # Send exit signal to worker thread
         self.audio_queue.put(None)

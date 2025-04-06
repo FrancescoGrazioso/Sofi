@@ -21,6 +21,11 @@ RECOGNITION_SETTINGS = {
     
     # Phrase segmentation
     "phrase_time_limit": 5,  # Maximum time limit for phrase in seconds
+    
+    # Buffer settings
+    "buffer_delay": 2.0,  # Tempo di attesa in secondi prima di inviare il testo all'API
+    "buffer_extension_time": 1.0,  # Tempo aggiuntivo di attesa quando viene aggiunto nuovo testo al buffer
+    "max_buffer_hold_time": 10.0,  # Tempo massimo di attesa per il buffer prima dell'invio forzato
 }
 
 # Display settings
@@ -28,6 +33,8 @@ DISPLAY_SETTINGS = {
     "progress_indicator": ".",  # Character used as progress indicator
     "text_prefix": "\nYou said: ",  # Prefix for recognized text
     "keyword_detected_message": "\nWake word detected! Listening...",  # Message when wake word is detected
+    "buffer_prefix": "\rTesto in attesa: ",  # Prefix for text being buffered
+    "buffer_countdown": "\rInvio fra %d secondi... ",  # Countdown message format
 }
 
 # System settings
